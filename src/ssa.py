@@ -39,6 +39,7 @@ class SSA(object):
         self.state = init_state
         self.time = 0
         self.history = [(self.time,self.state)]
+        self.verbose = False
         
     def propensity(self,stoich_vector,rate_constant):
         choices = [choose(x_j,-v_j)
@@ -54,6 +55,7 @@ class SSA(object):
         # Compute propensities
         propensities = [self.propensity(v,k) for v,k in 
                            zip(self.stoich_vectors,self.rate_constants)]
+        self.logging(propensities)
         p = sum(propensities) #rate of sum of random variables
         # determine time of next reaction
         dt = rexp(p)
@@ -63,6 +65,7 @@ class SSA(object):
         # update state vector
         self.state = zipWith(lambda x,y:x+y,self.state,v)
         self.time += dt
+        self.logging(str(self.time) + " " + str(self.state))
         self.history.append((self.time,self.state))
         #print self.state
 
@@ -74,5 +77,11 @@ class SSA(object):
         times, trajs = transpose(self.history)
         for traj in transpose(trajs):
             plt.plot(times,traj)
-    
+
+    def logging(self,x):
+        if self.verbose:
+            print x
+
+        
 print "loaded"
+
