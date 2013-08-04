@@ -34,12 +34,15 @@ rexp = expovariate
 
 
 class SSA(object):
-    def __init__(self,reactions,init_state):
+    def __init__(self,reactions,init_state,species_names):
         self.stoich_vectors,self.rate_constants = transpose(reactions)
         self.state = init_state
         self.time = 0
         self.history = [(self.time,self.state)]
         self.verbose = False
+        self.species_names = species_names
+        self.reactions_performed = 0
+        self.finished_run = False
         
     def propensity(self,stoich_vector,rate_constant):
         choices = [choose(x_j,-v_j)
@@ -49,34 +52,59 @@ class SSA(object):
         #print choices
         propensity = rate_constant*product(choices)
         #print "state:",self.state,"stoich:",stoich_vector,"rate const:",rate_constant,"prop:",propensity
+        if propensity < 0:
+            print "propensity less than zero:",stoich_vector,rate_constant
+            raise Exception
         return propensity
 
-    def update(self):
+    def update(self,final_time):
         # Compute propensities
         propensities = [self.propensity(v,k) for v,k in 
                            zip(self.stoich_vectors,self.rate_constants)]
         self.logging(propensities)
         p = sum(propensities) #rate of sum of random variables
         # determine time of next reaction
+        if p == 0:
+            raise Exception("No possible reactions")
         dt = rexp(p)
         #optimize next line later
         # determine which reaction
-        v = inverse_cdf_sample(self.stoich_vectors,normalize(propensities))
-        # update state vector
-        self.state = zipWith(lambda x,y:x+y,self.state,v)
-        self.time += dt
-        self.logging(str(self.time) + " " + str(self.state))
-        self.history.append((self.time,self.state))
+        new_time = self.time + dt
+        if new_time < final_time:
+            v = inverse_cdf_sample(self.stoich_vectors,normalize(propensities))
+    # update state vector
+            self.state = zipWith(lambda x,y:x+y,self.state,v)
+            self.time = new_time
+            self.logging(str(self.time) + " " + str(self.state))
+        
+            self.history.append((self.time,self.state))
         #print self.state
-
+            self.reactions_performed += 1
+        else:
+            self.finished_run = True
+        
     def run(self,final_time):
-        while self.time < final_time:
-            self.update()
+        self.finished_run = False
+        try:
+            while not self.finished_run:
+                self.update(final_time)
+        except Exception as e:
+            if e.message == "No possible reactions":
+                return
+            else:
+                raise e
+
+    def state_at(self,desired_time):
+        key = lambda(time,state):time if time < desired_time else 0
+        best_time,best_state = max(self.history,
+                                   key=key)
+        return best_state
 
     def plot_trajectory(self):
-        times, trajs = transpose(self.history)
-        for traj in transpose(trajs):
-            plt.plot(times,traj)
+        times, states = transpose(self.history)
+        trajs = transpose(states)
+        for traj,name in zip(trajs,self.species_names):
+            plt.plot(times,traj,label=name)
 
     def logging(self,x):
         if self.verbose:

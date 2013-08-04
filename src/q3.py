@@ -3,7 +3,7 @@ from ssa import SSA
 kr = 1/100.0
 gr = 10**4
 kp = 500 * gr
-gp = 6.79
+gp = 6.79 #approx H_500 (harmonic number)
 k3 = 10**6
 gnxp_reactions = [((1,0,0),kr), #mRNA production
                   ((-1,0,0),gr), #mRNA degradation
